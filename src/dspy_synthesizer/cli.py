@@ -78,16 +78,19 @@ def generate_context(args) -> bool:
     """Generate context file command"""
     print("🔄 Generating context...")
     
-    # Handle simple mode for Ollama
-    if args.ollama and args.simple_mode:
+    # Handle simple mode for Ollama (default unless --claude specified)
+    use_ollama = not args.claude
+    if use_ollama and args.simple_mode:
         return _generate_context_simple_mode(args)
     
-    # Setup DSPy (normal or DSPy-integrated Ollama)
+    # Setup DSPy (default to Ollama unless --claude specified)
     manager = DSPyContextManager()
-    use_dspy = not args.simple_mode if args.ollama else True
+    use_ollama = not args.claude
+    use_dspy = not args.simple_mode if use_ollama else True
     
-    if args.ollama:
-        success = manager._setup_ollama_model(args.ollama_model, use_dspy=use_dspy)
+    if use_ollama:
+        model = args.ollama_model or args.model
+        success = manager._setup_ollama_model(model, use_dspy=use_dspy)
     else:
         success = manager.setup_model(args.model)
     
@@ -140,9 +143,11 @@ def interactive_mode(args) -> bool:
     print("🎯 Interactive Context Generation Mode")
     print("Enter 'quit' to exit\n")
     
-    # Setup DSPy
+    # Setup DSPy (default to Ollama unless --claude specified)
     manager = DSPyContextManager()
-    if not manager.setup_model(args.model, use_ollama=args.ollama, ollama_model=args.ollama_model):
+    use_ollama = not args.claude
+    model = args.ollama_model or args.model if use_ollama else args.model
+    if not manager.setup_model(model, use_ollama=use_ollama, ollama_model=model if use_ollama else None):
         return False
     
     synthesizer = ContextSynthesizer()
@@ -215,10 +220,12 @@ Examples:
         """
     )
     
-    parser.add_argument("--model", default="claude-3-sonnet-20240229", 
-                       help="Claude model to use (default: claude-3-sonnet-20240229)")
-    parser.add_argument("--ollama", action="store_true",
-                       help="Use Ollama instead of Anthropic Claude")
+    parser.add_argument("--model", default="deepseek-coder:6.7b", 
+                       help="Model to use (default: deepseek-coder:6.7b via Ollama)")
+    parser.add_argument("--claude", action="store_true",
+                       help="Use Anthropic Claude instead of Ollama")
+    parser.add_argument("--ollama", action="store_true", default=True,
+                       help="Use Ollama (default behavior)")
     parser.add_argument("--ollama-model", 
                        help="Specific Ollama model to use (auto-selects best if not specified)")
     parser.add_argument("--list-ollama", action="store_true",
@@ -239,8 +246,10 @@ Examples:
                            help='Output file path (default: claude.md)')
     gen_parser.add_argument('--preview', action='store_true',
                            help='Show preview of generated context')
-    gen_parser.add_argument('--ollama', action='store_true',
-                           help='Use Ollama instead of Anthropic Claude')
+    gen_parser.add_argument('--claude', action='store_true',
+                           help='Use Anthropic Claude instead of Ollama (default)')
+    gen_parser.add_argument('--ollama', action='store_true', default=True,
+                           help='Use Ollama (default behavior)')
     gen_parser.add_argument('--ollama-model', 
                            help='Specific Ollama model to use')
     gen_parser.add_argument('--simple-mode', action='store_true',
@@ -248,8 +257,10 @@ Examples:
     
     # Interactive command
     interactive_parser = subparsers.add_parser('interactive', help='Interactive mode')
-    interactive_parser.add_argument('--ollama', action='store_true',
-                                   help='Use Ollama instead of Anthropic Claude')
+    interactive_parser.add_argument('--claude', action='store_true',
+                                   help='Use Anthropic Claude instead of Ollama (default)')
+    interactive_parser.add_argument('--ollama', action='store_true', default=True,
+                                   help='Use Ollama (default behavior)')
     interactive_parser.add_argument('--ollama-model', 
                                    help='Specific Ollama model to use')
     interactive_parser.add_argument('--simple-mode', action='store_true',
@@ -279,6 +290,11 @@ Examples:
     
     if not success:
         sys.exit(1)
+
+
+def cli_main():
+    """Entry point for console script"""
+    main()
 
 
 if __name__ == "__main__":
