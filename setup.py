@@ -32,7 +32,7 @@ setup(
     install_requires=requirements,
     entry_points={
         "console_scripts": [
-            "dspy-synthesizer=dspy_synthesizer.cli:main",
+            "dspy-synthesizer=dspy_synthesizer.cli:cli_main",
         ],
     },
 )

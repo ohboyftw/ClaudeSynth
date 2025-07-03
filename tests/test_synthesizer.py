@@ -18,28 +18,59 @@ class TestDSPyContextManager:
     
     @patch.dict(os.environ, {'ANTHROPIC_API_KEY': 'test-key'})
     @patch('dspy_synthesizer.synthesizer.dspy')
-    def test_setup_model_success(self, mock_dspy):
-        """Test successful model setup"""
+    def test_setup_anthropic_model_success(self, mock_dspy):
+        """Test successful Anthropic model setup"""
         mock_anthropic = Mock()
         mock_dspy.Anthropic.return_value = mock_anthropic
         
         manager = DSPyContextManager()
-        result = manager.setup_model()
+        result = manager.setup_model(model_name="claude-test-model")
         
         assert result is True
         assert manager.configured is True
-        mock_dspy.Anthropic.assert_called_once()
+        mock_dspy.Anthropic.assert_called_once_with(model="claude-test-model", max_tokens=4000, api_key="test-key")
         mock_dspy.settings.configure.assert_called_once_with(lm=mock_anthropic)
-    
-    @patch.dict(os.environ, {}, clear=True)
-    def test_setup_model_no_api_key(self):
-        """Test model setup without API key"""
-        manager = DSPyContextManager()
-        result = manager.setup_model()
+
+    @patch('dspy_synthesizer.synthesizer.dspy')
+    def test_setup_ollama_model_success(self, mock_dspy):
+        """Test successful Ollama model setup"""
+        mock_ollama_lm = Mock()
+        mock_dspy.LM.return_value = mock_ollama_lm
         
-        # Should fall back to test model
+        manager = DSPyContextManager()
+        result = manager.setup_model(use_ollama=True, ollama_model="test-ollama-model")
+        
         assert result is True
         assert manager.configured is True
+        mock_dspy.LM.assert_called_once_with(model="ollama/test-ollama-model", max_tokens=4000)
+        mock_dspy.settings.configure.assert_called_once_with(lm=mock_ollama_lm)
+
+    @patch.dict(os.environ, {}, clear=True)
+    @patch('dspy_synthesizer.synthesizer.dspy')
+    def test_setup_anthropic_model_no_api_key_failure(self, mock_dspy):
+        """Test Anthropic model setup fails without API key"""
+        manager = DSPyContextManager()
+        result = manager.setup_model(model_name="claude-test-model")
+        
+        assert result is False
+        assert manager.configured is False
+        mock_dspy.Anthropic.assert_not_called()
+        mock_dspy.settings.configure.assert_not_called()
+
+    @patch('dspy_synthesizer.synthesizer.dspy')
+    def test_setup_ollama_model_failure(self, mock_dspy):
+        """Test Ollama model setup failure"""
+        mock_dspy.LM.side_effect = Exception("Ollama connection error")
+        
+        manager = DSPyContextManager()
+        result = manager.setup_model(use_ollama=True, ollama_model="test-ollama-model")
+        
+        assert result is False
+        assert manager.configured is False
+        mock_dspy.LM.assert_called_once()
+        mock_dspy.settings.configure.assert_not_called()
+    
+    
     
     def test_is_configured(self):
         """Test configuration status check"""

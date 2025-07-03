@@ -96,63 +96,28 @@ class DSPyContextManager:
             
         except Exception as e:
             print(f"❌ Anthropic setup failed: {e}")
-            print("💡 Trying Ollama fallback...")
-            return self._setup_ollama_model(None, max_tokens)
+            
     
-    def _setup_ollama_model(self, ollama_model: str = None, max_tokens: int = 4000, use_dspy: bool = True) -> bool:
+    def _setup_ollama_model(self, ollama_model: str = None, max_tokens: int = 4000) -> bool:
         """Setup Ollama model using proper DSPy integration"""
         try:
-            if use_dspy:
-                # Use proper DSPy LM with LiteLLM integration
-                model_name = ollama_model or "deepseek-coder:6.7b"
-                
-                # DSPy's proper way via LiteLLM
-                ollama_lm = dspy.LM(model=f"ollama/{model_name}", max_tokens=max_tokens)
-                dspy.settings.configure(lm=ollama_lm)
-                
-                self.configured = True
-                print(f"🎯 Using proper DSPy + Ollama integration: {model_name}")
-                print("✨ Full DSPy features: ChainOfThought, optimization, caching")
-                return True
-            else:
-                # Fallback to simple mode if requested
-                print("📝 Using simple mode (bypassing DSPy features)...")
-                from .ollama_support import setup_ollama_fallback
-                success = setup_ollama_fallback(ollama_model)
-                if success:
-                    self.configured = True
-                    print("⚠️ Limited functionality - no ChainOfThought reasoning")
-                    return True
-                return False
+            # Use proper DSPy LM with LiteLLM integration
+            model_name = ollama_model or "deepseek-coder:6.7b"
+            
+            # DSPy's proper way via LiteLLM
+            ollama_lm = dspy.LM(model=f"ollama/{model_name}", max_tokens=max_tokens)
+            dspy.settings.configure(lm=ollama_lm)
+            
+            self.configured = True
+            print(f"🎯 Using proper DSPy + Ollama integration: {model_name}")
+            print("✨ Full DSPy features: ChainOfThought, optimization, caching")
+            return True
             
         except Exception as e:
             print(f"❌ Proper DSPy-Ollama setup failed: {e}")
-            print("💡 Falling back to simple mode...")
-            
-            # Try simple mode as fallback
-            try:
-                from .ollama_support import setup_ollama_fallback
-                success = setup_ollama_fallback(ollama_model)
-                if success:
-                    self.configured = True
-                    print("📝 Using simple Ollama mode (limited DSPy features)")
-                    return True
-            except:
-                pass
-            
-            return self._setup_test_fallback()
-    
-    def _setup_test_fallback(self) -> bool:
-        """Setup test fallback model"""
-        try:
-            fallback_model = dspy.OpenAI(model='gpt-3.5-turbo-instruct', max_tokens=100)
-            dspy.settings.configure(lm=fallback_model)
-            print("⚠️ Using test fallback model (output will be limited)")
-            self.configured = True
-            return True
-        except:
-            self.configured = False
             return False
+    
+    
     
     def is_configured(self) -> bool:
         """Check if DSPy is properly configured"""

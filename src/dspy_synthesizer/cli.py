@@ -26,71 +26,20 @@ def read_file_content(file_path: str) -> str:
         return ""
 
 
-def _generate_context_simple_mode(args) -> bool:
-    """Generate context using simple Ollama mode (no DSPy)"""
-    print("📝 Using simple Ollama mode...")
-    
-    try:
-        from .ollama_support import generate_context_simple
-        
-        # Read input files
-        code_examples = ""
-        if args.examples:
-            code_examples = read_file_content(args.examples)
-        
-        guidelines = ""
-        if args.guidelines:
-            guidelines = read_file_content(args.guidelines)
-        
-        # Generate context using simple mode
-        model = args.ollama_model or "deepseek-coder:6.7b"
-        context = generate_context_simple(
-            task=args.task,
-            examples=code_examples,
-            guidelines=guidelines,
-            model=model
-        )
-        
-        if context.startswith("Error:"):
-            print(f"❌ Simple mode generation failed: {context}")
-            return False
-        
-        # Write output
-        output_path = Path(args.output)
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(context)
-        
-        print(f"✅ Context generated (simple mode): {output_path}")
-        
-        # Show preview if requested
-        if args.preview:
-            print("\n--- Generated Context Preview ---")
-            print(context[:500] + "..." if len(context) > 500 else context)
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Simple mode failed: {e}")
-        return False
+
 
 
 def generate_context(args) -> bool:
     """Generate context file command"""
     print("🔄 Generating context...")
     
-    # Handle simple mode for Ollama (default unless --claude specified)
-    use_ollama = not args.claude
-    if use_ollama and args.simple_mode:
-        return _generate_context_simple_mode(args)
-    
     # Setup DSPy (default to Ollama unless --claude specified)
     manager = DSPyContextManager()
     use_ollama = not args.claude
-    use_dspy = not args.simple_mode if use_ollama else True
     
     if use_ollama:
         model = args.ollama_model or args.model
-        success = manager._setup_ollama_model(model, use_dspy=use_dspy)
+        success = manager._setup_ollama_model(model)
     else:
         success = manager.setup_model(args.model)
     
@@ -252,8 +201,7 @@ Examples:
                            help='Use Ollama (default behavior)')
     gen_parser.add_argument('--ollama-model', 
                            help='Specific Ollama model to use')
-    gen_parser.add_argument('--simple-mode', action='store_true',
-                           help='Use simple Ollama mode (bypass DSPy features)')
+    
     
     # Interactive command
     interactive_parser = subparsers.add_parser('interactive', help='Interactive mode')
@@ -263,19 +211,13 @@ Examples:
                                    help='Use Ollama (default behavior)')
     interactive_parser.add_argument('--ollama-model', 
                                    help='Specific Ollama model to use')
-    interactive_parser.add_argument('--simple-mode', action='store_true',
-                                   help='Use simple Ollama mode (bypass DSPy features)')
+    
     
     args = parser.parse_args()
     
     # Handle special commands first
     if args.list_ollama:
-        from .ollama_support import OllamaContextManager
-        manager = OllamaContextManager()
-        manager.print_model_recommendations()
-        print("\n🎯 Proper DSPy Integration Available:")
-        print("All models work with: dspy.LM(model='ollama/model-name')")
-        return
+        
     
     if not args.command:
         parser.print_help()
